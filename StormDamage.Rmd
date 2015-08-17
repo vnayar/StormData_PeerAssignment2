@@ -74,6 +74,48 @@ getRegionForState = function(state) {
 stormData$REGION = as.factor(sapply(stormData$STATE, getRegionForState))
 ```
 
+Furthermore the damage values must be converted into a form that can be
+compared.  Property damage is described by two columns, PROPDMG and PROPDMGEXP,
+which describe a scalar and exponent respectively.  Crop damage is similarly
+described in the columns CROPDMG and CROPDMGEXP.
+
+```{r, cache=TRUE}
+# Convert the symbols used in EXP columns into a numeric exponent.
+expSymbolToNumber = function(expSymbol) {
+  if (expSymbol %in% as.character(c(0:9))) {
+    return(as.numeric(expSymbol));
+  } else {
+    switch(toupper(expSymbol),
+           H = 2,
+           K = 3,
+           M = 6,
+           B = 9,
+           0)  # Default is 0.
+  }
+}
+
+stormData$CROPDMG = stormData$CROPDMG * 10^(sapply(stormData$CROPDMGEXP, expSymbolToNumber));
+stormData$CROPDMGEXP = NULL;
+stormData$PROPDMG = stormData$PROPDMG * 10^(sapply(stormData$PROPDMGEXP, expSymbolToNumber));
+stormData$PROPDMGEXP = NULL;
+```
+
+A number of event types in the data set describe the same kinds of events.
+```{r, cache=TRUE}
+stormData$EVTYPE[grepl('.*(TORNADO).*', toupper(stormData$EVTYPE))] = 'TORNADO'
+stormData$EVTYPE[grepl('.*(LIGHTNING).*', toupper(stormData$EVTYPE))] = 'LIGHTNING'
+stormData$EVTYPE[grepl('.*(HURRICANE|TROPICAL STORM|TSTM).*', toupper(stormData$EVTYPE))] = 'HURRICANE'
+stormData$EVTYPE[grepl('.*(WIND|WINS|WND).*', toupper(stormData$EVTYPE))] = 'WIND'
+stormData$EVTYPE[grepl('.*(FLOOD).*', toupper(stormData$EVTYPE))] = 'FLOOD'
+stormData$EVTYPE[grepl('.*(DROUGHT).*', toupper(stormData$EVTYPE))] = 'DROUGHT'
+stormData$EVTYPE[grepl('.*(HEAT|WARM).*', toupper(stormData$EVTYPE))] = 'HEAT'
+stormData$EVTYPE[grepl('.*(STORM).*', toupper(stormData$EVTYPE))] = 'STORM'
+stormData$EVTYPE[grepl('.*(WINTER|COLD|COOL).*', toupper(stormData$EVTYPE))] = 'COLD'
+stormData$EVTYPE[grepl('.*(MUD ?SLIDE).*', toupper(stormData$EVTYPE))] = 'MUDSLIDE'
+stormData$EVTYPE[grepl('.*(SNOW).*', toupper(stormData$EVTYPE))] = 'SNOW'
+stormData$EVTYPE[grepl('.*(RAIN).*', toupper(stormData$EVTYPE))] = 'RAIN'
+```
+
 ## Results
 
 ### Health Damage
@@ -121,12 +163,12 @@ fatalitiesPlot =
     ggplot(fatalitiesByEventAndRegion, aes(x=REGION, y=FATALITIES)) +
     ggtitle("Most Fatal Events") +
     facet_grid(EVTYPE ~ .) +
-    geom_point()
+    geom_bar(stat="identity")
 injuriesPlot =
     ggplot(injuriesByEventAndRegion, aes(x=REGION, y=INJURIES)) +
     ggtitle("Most Injurious Events") +
     facet_grid(EVTYPE ~ .) +
-    geom_point()
+    geom_bar(stat="identity")
 grid.arrange(fatalitiesPlot, injuriesPlot, ncol=2)
 ```
 
@@ -177,12 +219,12 @@ cropDmgPlot =
     ggplot(cropDmgByEventAndRegion, aes(x=REGION, y=CROPDMG)) +
     ggtitle("Most Crop Damaging Events") +
     facet_grid(EVTYPE ~ .) +
-    geom_point()
+    geom_bar(stat="identity")
 propDmgPlot =
     ggplot(propDmgByEventAndRegion, aes(x=REGION, y=PROPDMG)) +
     ggtitle("Most Property Damaging Events") +
     facet_grid(EVTYPE ~ .) +
-    geom_point()
+    geom_bar(stat="identity")
 grid.arrange(cropDmgPlot, propDmgPlot, ncol=2)
 ```
 
