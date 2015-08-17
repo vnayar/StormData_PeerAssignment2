@@ -25,6 +25,7 @@ Administration's (NOAA) storm database.  An archived version of this data can be
 Reproducible Research course stored in CloudFront.net.
 
 ```{r, cache=TRUE}
+dir.create("data", showWarnings=FALSE)
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
               "data/stormdata.csv.bz2", method="curl")
 stormData = read.csv(bzfile("data/stormdata.csv.bz2"))
