@@ -1,0 +1,199 @@
+---
+title: "Storm Damage Analysis: Peer Assessment 2"
+output: 
+  html_document:
+    keep_md: true
+  pdf_document:
+    toc: true
+---
+
+# Storm Damage Analysis: Peer Assessment 2
+
+## Abstract
+
+This analysis decomposes weather event data from NOAA and provides an overview of the most frequent
+causes of fatalities, injuries, crop damage, and property damage.  A summary of the most significant
+types of events is provided.  Furthermore, the fatalities/injuries and crop/property damage are
+compared by region of the country.  In most regions of the country, deaths are frequently caused by
+excessive heat.  Injuries are frequently caused by tornadoes.  Significant crop damage is caused by
+hail and floods, and significant property damage is caused by tornadoes.
+
+## Data Processing
+
+The data for this analysis is obtained from the U.S. National Oceanic and Atmospheric
+Administration's (NOAA) storm database.  An archived version of this data can be found from the
+Reproducible Research course stored in CloudFront.net.
+
+```{r, cache=TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+              "data/stormdata.csv.bz2", method="curl")
+stormData = read.csv(bzfile("data/stormdata.csv.bz2"))
+```
+
+Build up a method of categorizing states by region for further data analysis.
+
+```{r, cache=TRUE}
+regionStatesNorthEast = c(
+    "ME", "VT", "NH", "MA", "CT", "RI",
+    "NY", "PA", "NJ");
+regionStatesMidWest = c(
+    "ND", "SD", "NE", "KS", "MN", "IA", "MO",
+    "WI", "IL", "MI", "IN", "OH");
+regionStatesSouth = c(
+    "WV", "MD", "DE", "DC", "VA", "NC", "SC", "GA", "FL",
+    "KY", "TN", "MS", "AL",
+    "OK", "TX", "AR", "LA");
+regionStatesWest = c(
+    "WA", "OR", "CA", "AK",
+    "MT", "ID", "WY", "NV", "UT", "CO", "AZ", "NM");
+
+# An associative array mapping state to region.
+regionByState = c(
+    rep("northeast", length(regionStatesNorthEast)),
+    rep("midwest", length(regionStatesMidWest)),
+    rep("south", length(regionStatesSouth)),
+    rep("west", length(regionStatesWest)))
+names(regionByState) = c(
+         regionStatesNorthEast,
+         regionStatesMidWest,
+         regionStatesSouth,
+         regionStatesWest)
+
+# A function to convert state to region or NA.
+getRegionForState = function(state) {
+    stateName = as.character(state);
+    if (stateName %in% names(regionByState)) {
+        return(regionByState[[stateName]]);
+    } else {
+        return(NA);
+    }
+}
+
+# Finally define a field REGION for each observation.
+stormData$REGION = as.factor(sapply(stormData$STATE, getRegionForState))
+```
+
+## Results
+
+### Health Damage
+
+*Across the United States, which types of events (as indicated in the EVTYPE variable) are most
+harmful with respect to population health?*
+
+There are over 985 types of events, we need to limit ourselves to only the most dangerous ones.
+The top 20 most dangerous types of events can be seen below:
+```{r}
+injuriesByEvType = with(stormData, aggregate(INJURIES, by=list(EVTYPE), sum))
+names(injuriesByEvType) = c("EVTYPE", "INJURIES")
+injuriesByEvType = injuriesByEvType[order(injuriesByEvType$INJURIES, decreasing=TRUE), ]
+
+head(injuriesByEvType, 20)
+```
+
+The most fatal event types can be seen as well.
+```{r}
+fatalitiesByEvType = with(stormData, aggregate(FATALITIES, by=list(EVTYPE), sum))
+names(fatalitiesByEvType) = c("EVTYPE", "FATALITIES")
+fatalitiesByEvType = fatalitiesByEvType[order(fatalitiesByEvType$FATALITIES, decreasing=TRUE), ]
+
+head(fatalitiesByEvType, 20)
+```
+
+We can further break down the injuries and fatalities by region.  The following graphs show the 5
+most inuring or fatal events broken down by region.
+
+```{r}
+fatalitiesByEventAndRegion = with(
+    stormData[stormData$EVTYPE %in% head(fatalitiesByEvType$EVTYPE, 5), ],
+    aggregate(FATALITIES, by=list(EVTYPE, REGION), sum))
+names(fatalitiesByEventAndRegion) = c("EVTYPE", "REGION", "FATALITIES")
+
+injuriesByEventAndRegion = with(
+    stormData[stormData$EVTYPE %in% head(injuriesByEvType$EVTYPE, 5), ],
+    aggregate(INJURIES, by=list(EVTYPE, REGION), sum))
+names(injuriesByEventAndRegion) = c("EVTYPE", "REGION", "INJURIES")
+
+library(ggplot2)
+library(gridExtra)
+
+fatalitiesPlot =
+    ggplot(fatalitiesByEventAndRegion, aes(x=REGION, y=FATALITIES)) +
+    ggtitle("Most Fatal Events") +
+    facet_grid(EVTYPE ~ .) +
+    geom_point()
+injuriesPlot =
+    ggplot(injuriesByEventAndRegion, aes(x=REGION, y=INJURIES)) +
+    ggtitle("Most Injurious Events") +
+    facet_grid(EVTYPE ~ .) +
+    geom_point()
+grid.arrange(fatalitiesPlot, injuriesPlot, ncol=2)
+```
+
+### Economic Damage
+
+*Across the United States, which types of events have the greatest economic consequences?*
+
+Like we did with fatalities and injuries, we need to limit the number of types of events we consider.
+
+The top 20 most damaging types of events to crops can be seen below:
+
+```{r}
+cropDmgByEvType = with(stormData, aggregate(CROPDMG, by=list(EVTYPE), sum))
+names(cropDmgByEvType) = c("EVTYPE", "CROPDMG")
+cropDmgByEvType = cropDmgByEvType[order(cropDmgByEvType$CROPDMG, decreasing=TRUE), ]
+
+head(cropDmgByEvType, 20)
+```
+
+The top 20 most damaging types of events to property can be seen below:
+
+```{r}
+propDmgByEvType = with(stormData, aggregate(PROPDMG, by=list(EVTYPE), sum))
+names(propDmgByEvType) = c("EVTYPE", "PROPDMG")
+propDmgByEvType = propDmgByEvType[order(propDmgByEvType$PROPDMG, decreasing=TRUE), ]
+
+head(propDmgByEvType, 20)
+```
+
+We can further break down the crop and propery damage by region.  The following graphs show the 5
+most damaging events broken down by region.
+
+```{r}
+cropDmgByEventAndRegion = with(
+    stormData[stormData$EVTYPE %in% head(cropDmgByEvType$EVTYPE, 5), ],
+    aggregate(CROPDMG, by=list(EVTYPE, REGION), sum))
+names(cropDmgByEventAndRegion) = c("EVTYPE", "REGION", "CROPDMG")
+
+propDmgByEventAndRegion = with(
+    stormData[stormData$EVTYPE %in% head(propDmgByEvType$EVTYPE, 5), ],
+    aggregate(PROPDMG, by=list(EVTYPE, REGION), sum))
+names(propDmgByEventAndRegion) = c("EVTYPE", "REGION", "PROPDMG")
+
+library(ggplot2)
+library(gridExtra)
+
+cropDmgPlot =
+    ggplot(cropDmgByEventAndRegion, aes(x=REGION, y=CROPDMG)) +
+    ggtitle("Most Crop Damaging Events") +
+    facet_grid(EVTYPE ~ .) +
+    geom_point()
+propDmgPlot =
+    ggplot(propDmgByEventAndRegion, aes(x=REGION, y=PROPDMG)) +
+    ggtitle("Most Property Damaging Events") +
+    facet_grid(EVTYPE ~ .) +
+    geom_point()
+grid.arrange(cropDmgPlot, propDmgPlot, ncol=2)
+```
+
+## Conclusions
+
+All regions of the country face a significant number of deaths from Excessive Heat, with the West
+being a notable exception.  The Midwest in particular has a high rate of deaths from Heat and
+Tornados.
+
+The Midwest and the South suffer a high rate of injury from Tornadoes.
+
+The Midwest and the South suffer high amounts of crop damage from Hail, Flash Floods, and Floods.
+
+The Midwest and the South suffer high amounts of property damage from Floods, Tornadoes, and
+Thunderstorm Winds.
